@@ -265,17 +265,7 @@ impl CommentParser<Comments> {
             for pos in line.find_iter("//") {
                 let rest = &line[pos + 2..];
                 for rest in std::iter::once(rest).chain(rest.strip_prefix(b" ")) {
-                    if let Some('@' | '~' | '[' | ']' | '^' | '|') = rest.chars().next() {
-                        self.errors.push(Error::InvalidComment {
-                            msg: format!(
-                                "comment looks suspiciously like a test suite command: `{}`\n\
-                             All `//@` test suite commands must be at the start of the line.\n\
-                             The `//` must be directly followed by `@` or `~`.",
-                                rest.to_str()?,
-                            ),
-                            line: self.line,
-                        })
-                    } else {
+                    let Some(next) = rest.chars().next() else {
                         let mut parser = Self {
                             line: 0,
                             errors: vec![],
@@ -291,6 +281,20 @@ impl CommentParser<Comments> {
                             );
                         }
                         self.commands = parser.commands;
+                        continue;
+                    };
+
+                    if next != '#' && matches!(next, '@' | '~' | '[' | ']' | '^' | '|') {
+                        self.errors.push(Error::InvalidComment {
+                            msg: format!(
+                                "comment looks suspiciously like a test suite command: `{}`\n\
+                                All `//@` test suite commands must be at the start of the line.\n\
+                                The `//` must be directly followed by `@` or `~`. Use `//#` if you \
+                                wanted a comment.",
+                                rest.to_str()?,
+                            ),
+                            line: self.line,
+                        })
                     }
                 }
             }
